@@ -15,11 +15,29 @@ const requirementsByGate = {
   5: ["ai-evaluation", "security", "scope"], 6: ["e2e", "build", "security"],
   7: ["build", "deployment", "workflow"], 8: ["tests", "security", "deployment", "approval"]
 };
-const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+
+const json = (value, status = 200) => new Response(JSON.stringify(value), {
+  status,
+  headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
+});
 const parseJson = async request => { try { return await request.json(); } catch { return null; } };
 const isAuthorized = (request, env) => Boolean(env.INGEST_TOKEN) && request.headers.get("authorization") === `Bearer ${env.INGEST_TOKEN}`;
 const projectById = (db, id) => db.prepare("SELECT id, name, repository, default_branch, baseline, current_gate, status FROM projects WHERE id = ?1").bind(id).first();
 const projectByRepository = (db, repository) => db.prepare("SELECT id, name, repository, default_branch, baseline, current_gate, status FROM projects WHERE repository = ?1").bind(repository).first();
+const sha256 = async value => { const bytes = new TextEncoder().encode(value); const digest = await crypto.subtle.digest("SHA-256", bytes); return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join(""); };
+const stableJson = value => JSON.stringify(value, Object.keys(value || {}).sort());
+
+async function appendAuditEvent(db, { projectId, eventType, eventKey, sha, payload }) {
+  const previous = await db.prepare("SELECT chain_hash FROM audit_chain WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 1").bind(projectId).first();
+  const sequenceRow = await db.prepare("SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM audit_chain WHERE project_id = ?1").bind(projectId).first();
+  const payloadJson = JSON.stringify(payload);
+  const payloadHash = await sha256(payloadJson);
+  const previousHash = previous?.chain_hash || null;
+  const chainHash = await sha256([projectId, sequenceRow?.next_sequence || 1, eventType, eventKey, sha, payloadHash, previousHash || ""].join("|"));
+  const createdAt = new Date().toISOString();
+  await db.prepare("INSERT INTO audit_chain (project_id, sequence, event_type, event_key, sha, payload_hash, previous_hash, chain_hash, payload_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)").bind(projectId, sequenceRow?.next_sequence || 1, eventType, eventKey, sha, payloadHash, previousHash, chainHash, payloadJson, createdAt).run();
+  return { sequence: sequenceRow?.next_sequence || 1, payloadHash, previousHash, chainHash, createdAt };
+}
 
 async function ingest(request, env) {
   if (!isAuthorized(request, env)) return json({ status: "unauthorized" }, 401);
@@ -35,14 +53,33 @@ async function ingest(request, env) {
   const missingBaseRequirement = baseRequirements.some(requirement => !requirements.includes(requirement));
   const unsupportedRequirement = requirements.some(requirement => !baseRequirements.includes(requirement) && !allowedContractRequirements.has(requirement));
   if (missingBaseRequirement || unsupportedRequirement) return json({ status: "invalid", reason: "requirements must include all base Gate requirements and only the supported contracts requirement" }, 400);
+
+  const startedAt = Date.now();
   const decision = evaluateGate(requirements, body.checks);
   const now = new Date().toISOString();
-  await env.DB.batch([
+  const decisionId = crypto.randomUUID();
+  const traceId = request.headers.get("x-trace-id") || crypto.randomUUID();
+  const evidenceKey = `${project.id}:${body.gateIndex}:${body.sha}:${body.workflowRunId || "manual"}`;
+  const passCount = body.checks.filter(check => check.status === "PASS").length;
+  const failCount = body.checks.filter(check => check.status !== "PASS").length;
+  const decisionLog = {
+    decisionId, traceId, projectId: project.id, gateIndex: body.gateIndex, sha: body.sha,
+    evidenceKey, decision: decision.status, requirements, reasons: decision.reasons,
+    checkCount: body.checks.length, passCount, failCount, durationMs: Date.now() - startedAt
+  };
+
+  const statements = [
     env.DB.prepare("INSERT INTO evidence (project_id, gate_index, sha, branch, workflow_run_url, workflow_run_id, decision, checks_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)").bind(project.id, body.gateIndex, body.sha, body.branch, body.workflowRunUrl || null, body.workflowRunId || null, decision.status, JSON.stringify(body.checks), now),
     env.DB.prepare("INSERT INTO gates (project_id, gate_index, baseline, sha, status, requirements_json, checks_json, reasons_json, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(project_id, gate_index) DO UPDATE SET sha=excluded.sha, status=excluded.status, requirements_json=excluded.requirements_json, checks_json=excluded.checks_json, reasons_json=excluded.reasons_json, updated_at=excluded.updated_at").bind(project.id, body.gateIndex, gate?.baseline || project.baseline || null, body.sha, decision.status, JSON.stringify(requirements), JSON.stringify(body.checks), JSON.stringify(decision.reasons), now),
-    env.DB.prepare("UPDATE projects SET current_gate = ?1, status = ?2, updated_at = ?3 WHERE id = ?4").bind(body.gateIndex, decision.status, now, project.id)
-  ]);
-  return json({ status: "accepted", projectId: project.id, requirements, gateDecision: decision }, 202);
+    env.DB.prepare("UPDATE projects SET current_gate = ?1, status = ?2, updated_at = ?3 WHERE id = ?4").bind(body.gateIndex, decision.status, now, project.id),
+    env.DB.prepare("INSERT INTO decision_logs (decision_id, trace_id, project_id, gate_index, sha, evidence_key, decision, requirements_json, reasons_json, check_count, pass_count, fail_count, duration_ms, policy_version, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)").bind(decisionId, traceId, project.id, body.gateIndex, body.sha, evidenceKey, decision.status, JSON.stringify(requirements), JSON.stringify(decision.reasons), body.checks.length, passCount, failCount, Date.now() - startedAt, body.policyVersion || null, now)
+  ];
+  if (decision.status === "BLOCK") {
+    statements.push(env.DB.prepare("INSERT INTO block_alerts (project_id, gate_index, sha, evidence_key, decision_id, status, reason_json, delivery_status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'OPEN', ?6, 'NOT_CONFIGURED', ?7, ?7)").bind(project.id, body.gateIndex, body.sha, evidenceKey, decisionId, JSON.stringify(decision.reasons), now));
+  }
+  await env.DB.batch(statements);
+  const audit = await appendAuditEvent(env.DB, { projectId: project.id, eventType: "EVIDENCE_DECISION", eventKey: evidenceKey, sha: body.sha, payload: { decisionId, traceId, gateIndex: body.gateIndex, decision: decision.status, reasons: decision.reasons } });
+  return json({ status: "accepted", projectId: project.id, decisionId, traceId, evidenceKey, requirements, gateDecision: decision, audit }, 202);
 }
 
 async function registerProject(request, env) {
@@ -72,14 +109,20 @@ const parseStoredJson = value => { try { return JSON.parse(value || "[]"); } cat
 async function projectDetail(env, id) {
   const project = await projectById(env.DB, id);
   if (!project) return json({ status: "missing", reason: "Project is not registered" }, 404);
-  const [gateResult, evidenceResult] = await Promise.all([
+  const [gateResult, evidenceResult, decisionResult, alertResult, chainResult] = await Promise.all([
     env.DB.prepare("SELECT gate_index, baseline, sha, status, requirements_json, checks_json, reasons_json, updated_at FROM gates WHERE project_id = ?1 ORDER BY gate_index ASC").bind(id).all(),
-    env.DB.prepare("SELECT id, gate_index, sha, branch, workflow_run_url, workflow_run_id, decision, checks_json, created_at FROM evidence WHERE project_id = ?1 ORDER BY created_at DESC, id DESC LIMIT 50").bind(id).all()
+    env.DB.prepare("SELECT id, gate_index, sha, branch, workflow_run_url, workflow_run_id, decision, checks_json, created_at FROM evidence WHERE project_id = ?1 ORDER BY created_at DESC, id DESC LIMIT 50").bind(id).all(),
+    env.DB.prepare("SELECT decision_id, trace_id, gate_index, sha, evidence_key, decision, requirements_json, reasons_json, check_count, pass_count, fail_count, duration_ms, policy_version, created_at FROM decision_logs WHERE project_id = ?1 ORDER BY id DESC LIMIT 50").bind(id).all(),
+    env.DB.prepare("SELECT id, gate_index, sha, evidence_key, decision_id, status, reason_json, delivery_status, created_at, updated_at FROM block_alerts WHERE project_id = ?1 ORDER BY id DESC LIMIT 50").bind(id).all(),
+    env.DB.prepare("SELECT sequence, event_type, event_key, sha, payload_hash, previous_hash, chain_hash, created_at FROM audit_chain WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 50").bind(id).all()
   ]);
   return json({
     project,
     gates: gateResult.results.map(gate => ({ ...gate, requirements: parseStoredJson(gate.requirements_json), checks: parseStoredJson(gate.checks_json), reasons: parseStoredJson(gate.reasons_json) })),
-    evidence: evidenceResult.results.map(item => ({ ...item, checks: parseStoredJson(item.checks_json) }))
+    evidence: evidenceResult.results.map(item => ({ ...item, checks: parseStoredJson(item.checks_json) })),
+    decisionLogs: decisionResult.results.map(item => ({ ...item, requirements: parseStoredJson(item.requirements_json), reasons: parseStoredJson(item.reasons_json) })),
+    blockAlerts: alertResult.results.map(item => ({ ...item, reasons: parseStoredJson(item.reason_json) })),
+    auditChain: chainResult.results
   });
 }
 
@@ -87,7 +130,7 @@ const landing = `<!doctype html><meta charset="utf-8"><title>Engineering Control
 
 export default { async fetch(request, env) {
   const url = new URL(request.url);
-  if (url.pathname === "/api/health") return json({ status: "ok", runtime: "cloudflare-worker", engine: "deterministic" });
+  if (url.pathname === "/api/health") return json({ status: "ok", runtime: "cloudflare-worker", engine: "deterministic", audit: "hash-chain", diagnostics: "advisory-only" });
   if (url.pathname === "/api/projects" && request.method === "GET") return listProjects(env);
   if (url.pathname === "/api/projects" && request.method === "POST") return registerProject(request, env);
   const projectMatch = url.pathname.match(/^\/api\/projects\/(\d+)$/);
