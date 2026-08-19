@@ -28,15 +28,21 @@ async function ingest(request, env) {
   const project = body.projectId ? await projectById(env.DB, body.projectId) : await projectByRepository(env.DB, body.repository);
   if (!project) return json({ status: "missing", reason: "Project is not registered" }, 404);
   const gate = await env.DB.prepare("SELECT requirements_json, baseline FROM gates WHERE project_id = ?1 AND gate_index = ?2").bind(project.id, body.gateIndex).first();
-  const requirements = gate ? JSON.parse(gate.requirements_json) : requirementsByGate[body.gateIndex];
+  const baseRequirements = gate ? JSON.parse(gate.requirements_json) : requirementsByGate[body.gateIndex];
+  const requestedRequirements = Array.isArray(body.requirements) && body.requirements.every(item => typeof item === "string") ? body.requirements : null;
+  const allowedContractRequirements = new Set(["contracts"]);
+  const requirements = requestedRequirements && requestedRequirements.length > 0 ? requestedRequirements : baseRequirements;
+  const missingBaseRequirement = baseRequirements.some(requirement => !requirements.includes(requirement));
+  const unsupportedRequirement = requirements.some(requirement => !baseRequirements.includes(requirement) && !allowedContractRequirements.has(requirement));
+  if (missingBaseRequirement || unsupportedRequirement) return json({ status: "invalid", reason: "requirements must include all base Gate requirements and only the supported contracts requirement" }, 400);
   const decision = evaluateGate(requirements, body.checks);
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO evidence (project_id, gate_index, sha, branch, workflow_run_url, workflow_run_id, decision, checks_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)").bind(project.id, body.gateIndex, body.sha, body.branch, body.workflowRunUrl || null, body.workflowRunId || null, decision.status, JSON.stringify(body.checks), now),
-    env.DB.prepare("INSERT INTO gates (project_id, gate_index, baseline, sha, status, requirements_json, checks_json, reasons_json, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(project_id, gate_index) DO UPDATE SET sha=excluded.sha, status=excluded.status, checks_json=excluded.checks_json, reasons_json=excluded.reasons_json, updated_at=excluded.updated_at").bind(project.id, body.gateIndex, gate?.baseline || project.baseline || null, body.sha, decision.status, JSON.stringify(requirements), JSON.stringify(body.checks), JSON.stringify(decision.reasons), now),
+    env.DB.prepare("INSERT INTO gates (project_id, gate_index, baseline, sha, status, requirements_json, checks_json, reasons_json, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(project_id, gate_index) DO UPDATE SET sha=excluded.sha, status=excluded.status, requirements_json=excluded.requirements_json, checks_json=excluded.checks_json, reasons_json=excluded.reasons_json, updated_at=excluded.updated_at").bind(project.id, body.gateIndex, gate?.baseline || project.baseline || null, body.sha, decision.status, JSON.stringify(requirements), JSON.stringify(body.checks), JSON.stringify(decision.reasons), now),
     env.DB.prepare("UPDATE projects SET current_gate = ?1, status = ?2, updated_at = ?3 WHERE id = ?4").bind(body.gateIndex, decision.status, now, project.id)
   ]);
-  return json({ status: "accepted", projectId: project.id, gateDecision: decision }, 202);
+  return json({ status: "accepted", projectId: project.id, requirements, gateDecision: decision }, 202);
 }
 
 async function registerProject(request, env) {
