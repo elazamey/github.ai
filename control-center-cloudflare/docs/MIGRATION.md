@@ -42,6 +42,7 @@ The deployed Worker serves the Static Assets dashboard and D1-backed runtime. Th
 | Project detail | `GET /api/projects/1` returns Calia Fashion project, Gates 0–8, and stored Evidence |
 | Evidence authorization | Valid token accepted with `202`; a wrong token rejected with `401` |
 | Registration protection | Missing token rejected with `401`; duplicate Calia repository rejected with `409` |
+| Real registration | `POST /api/projects` registered `elazamey/github.ai` as project `2` at baseline `1bf41647b4789ff7a0bc79ee818fb03bd8e2357a`; `GET /api/projects/2` returned Gates 0–8 initialized as `TODO` |
 | Deterministic tests | Three Node tests pass: Gate PASS rule, Gate BLOCK rule, and authenticated project/Gate creation |
 
 > The successful Calia Fashion workflow run `32230786766` proved its Bridge syntax but **did not submit Evidence** because both GitHub repository secrets were empty. It is not Evidence of a successful GitHub-to-Worker transport. The API transport itself was verified separately with the configured ingestion secret and a real Calia commit SHA.
