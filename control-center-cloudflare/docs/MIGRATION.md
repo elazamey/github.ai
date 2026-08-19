@@ -45,9 +45,18 @@ The deployed Worker serves the Static Assets dashboard and D1-backed runtime. Th
 | Real registration | `POST /api/projects` registered `elazamey/github.ai` as project `2` at baseline `1bf41647b4789ff7a0bc79ee818fb03bd8e2357a`; `GET /api/projects/2` returned Gates 0–8 initialized as `TODO` |
 | Deterministic tests | Three Node tests pass: Gate PASS rule, Gate BLOCK rule, and authenticated project/Gate creation |
 | Calia Structure Gate | Workflow Run `32253246349` submitted real Evidence for SHA `8f36ebc6e9a5ac5e73a1acd4f983bf8a432c6647`; required files and documented contracts passed deterministically; D1 decision = `PASS` |
+| Calia Contract-aware Gate | Workflow Run `32260466149` submitted real Evidence for SHA `2ad7f7e5f4291c2270f77a5a0b6dd6a10a16e909`; D1 stored requirements `["structure","evidence","contracts"]`, all three checks as `PASS`, and Gate 0 decision `PASS` |
 
 > The earlier Calia Fashion workflow run `32230786766` was the last pre-Structure baseline and submitted Evidence with `structure: TODO`, producing deterministic `BLOCK`. The subsequent Workflow Run `32253246349` submitted fresh Structure Evidence from SHA `8f36ebc6e9a5ac5e73a1acd4f983bf8a432c6647` and produced deterministic `PASS`.
 
 ## GitHub Actions
 
-Set `CONTROL_CENTER_URL` to the deployed Worker URL and `CONTROL_CENTER_INGEST_TOKEN` to the same value as `INGEST_TOKEN`. The Calia Bridge now runs `scripts/check-structure.sh`, which deterministically checks `README.md`, `CONTROL_CENTER_INTEGRATION.md`, and `.github/workflows/control-center.yml`, including the documented registration contract and Evidence endpoint. It reports auditable `PASS` or `FAIL` details; it does not use a placeholder `TODO` result.
+Set `CONTROL_CENTER_URL` to the deployed Worker URL and `CONTROL_CENTER_INGEST_TOKEN` to the same value as `INGEST_TOKEN`. The Calia Bridge runs `scripts/check-structure.sh`, which deterministically checks `README.md`, `CONTROL_CENTER_INTEGRATION.md`, and `.github/workflows/control-center.yml`, including the documented registration contract and Evidence endpoint. It reports auditable `PASS` or `FAIL` details; it does not use a placeholder `TODO` result.
+
+### Contract-aware check selection
+
+The Calia Bridge runs `scripts/check-contracts.sh` after resolving the actual checked-out SHA with `git rev-parse HEAD`. The selector compares the current SHA with the workflow base SHA, using a full-history checkout so the comparison is reproducible for both push and `workflow_dispatch` runs.
+
+When `README.md`, `CONTROL_CENTER_INTEGRATION.md`, or `.github/workflows/control-center.yml` changes, the selector emits `requirements=["structure","evidence","contracts"]` and runs the deterministic contract checks relevant to the changed files. When none of those contract files changes, it emits `requirements=["structure","evidence"]` and does not request the optional `contracts` requirement. The Worker accepts the selected requirements only when every base Gate requirement is retained and no unsupported requirement is introduced; the Gate Engine still decides `PASS` or `BLOCK` solely from the submitted check statuses.
+
+The Bridge serializes `requirements_json` as a multiline GitHub Actions output and validates the diff against a full checkout. This prevents an empty JSON field from reaching `/api/evidence` during manual dispatch. The verified changed-contract path is Run `32260466149`, where the selector reported `changed=.github/workflows/control-center.yml`, stored the three requirements in D1, and produced a deterministic `PASS`. The unchanged path was separately verified locally with the two base requirements.
