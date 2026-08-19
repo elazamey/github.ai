@@ -9,7 +9,7 @@ This package moves the Engineering Control Center runtime to one Worker deployme
 | Worker URL | `https://engineering-control-center.canyoudfg.workers.dev` |
 | D1 database | `engineering-control-center` |
 | D1 database ID | `3a8313bd-bf2a-4d6b-882e-0c1ba2115f47` |
-| Current migrated project | `elazamey/calia-fashion-design`, baseline `b72cd00`, Gate 0 = `BLOCK` because the required structural check remains `TODO` |
+| Current migrated project | `elazamey/calia-fashion-design`, baseline `b72cd00`, latest verified Gate 0 = `PASS` on SHA `8f36ebc6e9a5ac5e73a1acd4f983bf8a432c6647` |
 
 The deployed Worker serves the Static Assets dashboard and D1-backed runtime. The dashboard reads the project registry, Gate history, Evidence history, SHA, baseline, and workflow links directly from the Worker API. Gate Engine decisions remain deterministic and never use AI to decide a Gate.
 
@@ -44,9 +44,10 @@ The deployed Worker serves the Static Assets dashboard and D1-backed runtime. Th
 | Registration protection | Missing token rejected with `401`; duplicate Calia repository rejected with `409` |
 | Real registration | `POST /api/projects` registered `elazamey/github.ai` as project `2` at baseline `1bf41647b4789ff7a0bc79ee818fb03bd8e2357a`; `GET /api/projects/2` returned Gates 0–8 initialized as `TODO` |
 | Deterministic tests | Three Node tests pass: Gate PASS rule, Gate BLOCK rule, and authenticated project/Gate creation |
+| Calia Structure Gate | Workflow Run `32253246349` submitted real Evidence for SHA `8f36ebc6e9a5ac5e73a1acd4f983bf8a432c6647`; required files and documented contracts passed deterministically; D1 decision = `PASS` |
 
-> The successful Calia Fashion workflow run `32230786766` proved its Bridge syntax but **did not submit Evidence** because both GitHub repository secrets were empty. It is not Evidence of a successful GitHub-to-Worker transport. The API transport itself was verified separately with the configured ingestion secret and a real Calia commit SHA.
+> The earlier Calia Fashion workflow run `32230786766` was the last pre-Structure baseline and submitted Evidence with `structure: TODO`, producing deterministic `BLOCK`. The subsequent Workflow Run `32253246349` submitted fresh Structure Evidence from SHA `8f36ebc6e9a5ac5e73a1acd4f983bf8a432c6647` and produced deterministic `PASS`.
 
 ## GitHub Actions
 
-Set `CONTROL_CENTER_URL` to the deployed Worker URL and `CONTROL_CENTER_INGEST_TOKEN` to the same value as `INGEST_TOKEN`. The Bridge should report real check outcomes only; never use placeholder PASS results for tests, build, typecheck, or security. The included template sets `structure` to `TODO` until a repository-specific deterministic structural check is supplied, so Gate 0 remains `BLOCK` rather than receiving a fabricated PASS.
+Set `CONTROL_CENTER_URL` to the deployed Worker URL and `CONTROL_CENTER_INGEST_TOKEN` to the same value as `INGEST_TOKEN`. The Calia Bridge now runs `scripts/check-structure.sh`, which deterministically checks `README.md`, `CONTROL_CENTER_INTEGRATION.md`, and `.github/workflows/control-center.yml`, including the documented registration contract and Evidence endpoint. It reports auditable `PASS` or `FAIL` details; it does not use a placeholder `TODO` result.
