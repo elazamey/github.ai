@@ -3,6 +3,13 @@ name: Report Evidence to Engineering Control Center
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or commit SHA to inspect"
+        required: false
+        default: "main"
+        type: string
 
 jobs:
   report-evidence:
@@ -14,6 +21,12 @@ jobs:
       CONTROL_CENTER_INGEST_TOKEN: ${{ secrets.CONTROL_CENTER_INGEST_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Resolve inspected SHA
+        id: revision
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Submit deterministic Gate 0 Evidence
         if: ${{ env.CONTROL_CENTER_URL != '' && env.CONTROL_CENTER_INGEST_TOKEN != '' }}
         run: |
@@ -25,7 +38,7 @@ jobs:
           {
             "repository": "${{ github.repository }}",
             "gateIndex": 0,
-            "sha": "${{ github.sha }}",
+            "sha": "${{ steps.revision.outputs.sha }}",
             "branch": "${{ github.ref_name }}",
             "workflowRunUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
             "workflowRunId": "${{ github.run_id }}",
