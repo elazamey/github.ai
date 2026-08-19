@@ -1,0 +1,42 @@
+name: Technical Decision
+description: توثيق قرار تقني أو استثناء يؤثر على Gate
+title: "[DECISION] "
+labels:
+  - technical-decision
+body:
+  - type: input
+    id: scope
+    attributes:
+      label: النطاق
+      description: المشروع أو مركز التحكم المتأثر
+      placeholder: owner/repository أو CONTROL_CENTER
+    validations:
+      required: true
+  - type: input
+    id: gate
+    attributes:
+      label: Gate المرتبط
+      placeholder: gate-0
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: السياق
+      description: المشكلة أو القيد الذي استدعى القرار
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: القرار
+      description: القرار المقترح أو المعتمد
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: الآثار وEvidence
+      description: اذكر البدائل والآثار وروابط SHA أو Evidence
+    validations:
+      required: true

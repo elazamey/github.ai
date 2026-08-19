@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "gates": {
+    "gate-0": {
+      "name": "Control Center Foundation",
+      "requires": ["structure", "evidence"]
+    },
+    "gate-1": {
+      "name": "Architecture",
+      "previous": "gate-0",
+      "requires": ["architecture", "structure"]
+    },
+    "gate-2": {
+      "name": "Frontend",
+      "previous": "gate-1",
+      "requires": ["tests", "build", "structure"]
+    },
+    "gate-3": {
+      "name": "Backend",
+      "previous": "gate-2",
+      "requires": ["tests", "build", "security"]
+    },
+    "gate-4": {
+      "name": "Database",
+      "previous": "gate-3",
+      "requires": ["tests", "security", "architecture"]
+    },
+    "gate-5": {
+      "name": "AI",
+      "previous": "gate-4",
+      "requires": ["tests", "security", "scope"]
+    },
+    "gate-6": {
+      "name": "End-to-End",
+      "previous": "gate-5",
+      "requires": ["tests", "build", "security"]
+    },
+    "gate-7": {
+      "name": "Deployment",
+      "previous": "gate-6",
+      "requires": ["tests", "build", "deployment"]
+    },
+    "gate-8": {
+      "name": "Production Readiness",
+      "previous": "gate-7",
+      "requires": ["tests", "build", "security", "deployment", "architecture"]
+    }
+  }
+}

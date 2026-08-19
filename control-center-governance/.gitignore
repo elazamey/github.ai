@@ -1,0 +1,9 @@
+# Local and CI-generated evidence artifacts
+EVIDENCE/*/*.json
+EVIDENCE/*/verification-*.md
+
+# Local tooling and editor files
+.DS_Store
+.vscode/
+.idea/
+*.swp

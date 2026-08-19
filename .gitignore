@@ -1,0 +1,17 @@
+# Sensitive or environment-specific files
+.env*
+*.pem
+*.key
+
+# Runtime and build output
+node_modules/
+dist/
+.manus-logs/
+coverage/
+
+# Local and generated Evidence
+EVIDENCE/*
+!EVIDENCE/.gitkeep
+*.log
+.DS_Store
+

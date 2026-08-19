@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "calia-fashion-design",
+      "repository": "elazamey/calia-fashion-design",
+      "url": "https://github.com/elazamey/calia-fashion-design",
+      "default_branch": "main",
+      "current_gate": "gate-0",
+      "baseline": "b72cd00",
+      "status": "REGISTERED",
+      "profile": "PROJECTS/calia-fashion-design.md"
+    }
+  ]
+}

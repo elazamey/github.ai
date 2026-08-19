@@ -1,0 +1,37 @@
+name: Report Evidence to Control Center
+
+on:
+  workflow_run:
+    workflows: [Test, Build, Security Scan]
+    types: [completed]
+
+jobs:
+  report-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send Evidence
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_INGEST_TOKEN: ${{ secrets.CONTROL_CENTER_INGEST_TOKEN }}
+        run: |
+          curl --fail-with-body --request POST "$CONTROL_CENTER_URL/api/v1/evidence" \
+            --header "Authorization: Bearer $CONTROL_CENTER_INGEST_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data @- <<JSON
+          {
+            "projectId": 1,
+            "gateIndex": 0,
+            "sha": "${{ github.event.workflow_run.head_sha }}",
+            "branch": "${{ github.event.workflow_run.head_branch }}",
+            "workflowRunUrl": "${{ github.event.workflow_run.html_url }}",
+            "workflowRunId": "${{ github.event.workflow_run.id }}",
+            "checks": [
+              {
+                "name": "workflow",
+                "status": "${{ github.event.workflow_run.conclusion == 'success' && 'PASS' || 'BLOCK' }}",
+                "details": "${{ github.event.workflow_run.name }}"
+              }
+            ]
+          }
+          JSON

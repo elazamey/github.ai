@@ -1,0 +1,24 @@
+# Project TODO
+
+- [x] Define database models for projects, Gates, Evidence, Gate Engine decisions, technical decisions, and Roadmap phases.
+- [x] Implement API procedures to register projects, ingest Evidence, evaluate Gate state, and retrieve platform data.
+- [x] Create a GitHub Actions Evidence submission contract and integration template.
+- [x] Build the main dashboard with PASS, BLOCK, and TODO project status indicators.
+- [x] Build project details with Gates 0–8, conditions, baseline, SHA, checks, and Gate Engine reasons.
+- [x] Build Evidence history and technical decisions views.
+- [x] Build project registration and Roadmap management views.
+- [x] Apply the Typographic Brutalism visual system with high contrast, heavy typography, asymmetric structure, and wide negative space.
+- [x] Add Vitest coverage for the Evidence ingestion and Gate evaluation behavior.
+- [x] Verify the database schema, API behavior, responsive interface, and visual presentation.
+- [x] Save a delivery checkpoint after all completed work is marked done.
+- [x] Register the real Calia Fashion repository with an honest TODO Gate state and baseline.
+- [x] Accept repository-based Evidence submissions in addition to numeric project identifiers.
+- [x] Add and validate a safe GitHub Actions Bridge template for the actual project capabilities.
+- [x] Verify the registered project appears in the dashboard and project detail view without fabricated PASS or BLOCK results.
+- [x] Save a checkpoint for the real-project integration update.
+- [ ] Configure the Calia Fashion repository secrets for the current Control Center endpoint and ingestion token. BLOCKED: GitHub returned 403 for the current integration token.
+- [x] Add a documented non-persistent positive Evidence simulation for Gate 0.
+- [x] Add a documented negative token simulation that proves a 401 response without state mutation.
+- [x] Verify simulation results and restore the real project to its pre-simulation TODO state.
+- [x] Save a checkpoint for secret configuration and simulation documentation.
+- [ ] Archive transferable Control Center source, skill package, and integration documentation in elazamey/github.ai without secrets.

@@ -1,0 +1,34 @@
+name: Control Center Validation
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate-structure:
+    name: Validate Gate Engine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository structure
+        run: ./SCRIPTS/validate-gates.sh
+
+      - name: Validate control center files and syntax
+        run: ./SCRIPTS/validate-control-center.sh
+
+      - name: Run Gate Engine self-tests
+        run: ./SCRIPTS/test-gate-engine.sh
+
+      - name: Generate and evaluate Gate 0 evidence
+        run: ./SCRIPTS/generate-evidence.sh --gate gate-0
+
+      - name: Upload Gate 0 evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-0-evidence
+          path: EVIDENCE/gate-0/
