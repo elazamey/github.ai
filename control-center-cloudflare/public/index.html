@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Deterministic engineering governance with Gates, Evidence, SHA, baseline, and Workflow Run history.">
+    <title>Engineering Control Center</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">ENGINEERING / CONTROL / CENTER</p>
+        <h1>GATE OPS<span>.</span></h1>
+      </div>
+      <div class="runtime-panel">
+        <p>EDGE RUNTIME</p>
+        <strong id="runtime-status">CHECKING</strong>
+        <small>CLOUDFLARE / D1 / DETERMINISTIC</small>
+      </div>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow"><span class="signal"></span>ECOSYSTEM / LIVE STATUS</p>
+        <h2 id="hero-title">CONTROL<br>THE BUILD</h2>
+        <p class="description">The Gate Engine decides only from required checks. Evidence records SHA, baseline, workflow run, and the exact reason a Gate is PASS, BLOCK, or TODO.</p>
+      </section>
+
+      <section id="summary" class="summary" aria-label="Project status summary" aria-live="polite"></section>
+
+      <section class="registry-section" aria-labelledby="registry-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">REGISTERED PROJECTS</p>
+            <h3 id="registry-title">CURRENT GATE SURFACE</h3>
+          </div>
+          <button id="reload" class="reload" type="button">REFRESH LIVE DATA</button>
+        </div>
+        <div id="projects" class="projects" aria-live="polite"></div>
+      </section>
+
+      <section id="detail-panel" class="detail-panel" aria-live="polite" aria-labelledby="detail-title">
+        <div class="empty detail-empty">
+          <p class="eyebrow">PROJECT INSPECTION</p>
+          <h3 id="detail-title">SELECT A PROJECT</h3>
+          <p>Choose a repository above to inspect its Gates, requirements, reasons, SHA, and stored Evidence.</p>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <span>STATUS IS A DECISION, NOT A DECORATION.</span>
+      <span>NO AI AUTHORITY OVER GATE OUTCOMES.</span>
+    </footer>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

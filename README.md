@@ -6,6 +6,7 @@ This public repository is the portable source archive for the Engineering Contro
 |---|---|
 | `control-center-governance/` | The standalone GitHub governance repository: Gates, Evidence tooling, validation scripts, workflows, templates, and architecture documents. |
 | `control-center-live/` | The full-stack Engineering Control Center Live application: client, server, database schema and migrations, API documentation, tests, and operational notes. |
+| `control-center-cloudflare/` | Cloudflare migration package: Worker, D1 migration, deterministic Gate Engine, Static Assets source, Bridge template, and operating guide. |
 | `skills/github-engineering-control-center/` | Reusable skill package for bootstrapping the Gate, Evidence, and governance workflow. |
 | `integrations/calia-fashion-design/` | Safe GitHub Actions Bridge and setup guidance for Calia Fashion Design. |
 

@@ -1,0 +1,14 @@
+{
+  "name": "engineering-control-center-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:remote": "wrangler d1 migrations apply engineering-control-center --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,40 @@
+name: Report Evidence to Engineering Control Center
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  report-evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+      CONTROL_CENTER_INGEST_TOKEN: ${{ secrets.CONTROL_CENTER_INGEST_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Submit deterministic Gate 0 Evidence
+        if: ${{ env.CONTROL_CENTER_URL != '' && env.CONTROL_CENTER_INGEST_TOKEN != '' }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST "$CONTROL_CENTER_URL/api/evidence" \
+            --header "Authorization: Bearer $CONTROL_CENTER_INGEST_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data @- <<JSON
+          {
+            "repository": "${{ github.repository }}",
+            "gateIndex": 0,
+            "sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "workflowRunUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "workflowRunId": "${{ github.run_id }}",
+            "checks": [
+              {"name":"structure","status":"TODO","detail":"Replace this with a repository-specific deterministic structural check before claiming PASS."},
+              {"name":"evidence","status":"PASS","detail":"GitHub Actions submitted this Evidence payload to the Control Center."}
+            ]
+          }
+          JSON
+      - name: Bridge secrets not configured
+        if: ${{ env.CONTROL_CENTER_URL == '' || env.CONTROL_CENTER_INGEST_TOKEN == '' }}
+        run: echo "Evidence submission skipped because required secrets are not configured."
